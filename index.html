@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alien Dictionary</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to right bottom, #6a11cb, #2575fc); /* Modern gradient background */
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 600px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); /* Stronger, softer shadow */
+            text-align: center;
+            backdrop-filter: blur(5px); /* Optional: Frosted glass effect */
+            background-color: rgba(255, 255, 255, 0.9); /* Slightly transparent background */
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-weight: 600;
+            font-size: 2.2em;
+        }
+        p {
+            color: #555;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        textarea {
+            width: calc(100% - 20px); /* Adjust width for padding */
+            height: 120px;
+            margin-bottom: 20px;
+            font-size: 1em;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08); /* Inner shadow for depth */
+            transition: all 0.3s ease;
+        }
+        textarea:focus {
+            border-color: #007BFF;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.2);
+            outline: none;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px; /* More rounded corners */
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); /* Button shadow */
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .output {
+            margin-top: 30px;
+            font-size: 1.2em;
+            color: #333;
+            background-color: #f0f8ff; /* Light blue background for output */
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #cceeff;
+            min-height: 40px; /* Ensure some height even if empty */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .error {
+            color: #d9534f; /* A more prominent red for errors */
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Alien Dictionary</h1>
+        <p>Enter a sorted list of words from the alien language (one word per line):</p>
+        <textarea id="wordsInput" placeholder="Example:\nwrt\nwrf\ner\nett\nrftt"></textarea>
+        <button onclick="findAlienOrder()">Find Character Order</button>
+        <div id="output" class="output"></div>
+    </div>
+
+    <script>
+        function buildGraph(words) {
+            const graph = {};
+            const inDegree = {};
+
+            // Initialize graph and in-degree
+            for (const word of words) {
+                for (const char of word) {
+                    if (!graph[char]) {
+                        graph[char] = new Set();
+                        inDegree[char] = 0;
+                    }
+                }
+            }
+
+            // Build graph and calculate in-degree
+            for (let i = 0; i < words.length - 1; i++) {
+                const word1 = words[i];
+                const word2 = words[i + 1];
+                const minLength = Math.min(word1.length, word2.length);
+
+                // Check for invalid lexicographical order
+                if (word1.slice(0, minLength) === word2.slice(0, minLength) && word1.length > word2.length) {
+                    return null;
+                }
+
+                for (let j = 0; j < minLength; j++) {
+                    if (word1[j] !== word2[j]) {
+                        if (!graph[word1[j]].has(word2[j])) {
+                            graph[word1[j]].add(word2[j]);
+                            inDegree[word2[j]]++;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            return { graph, inDegree };
+        }
+
+        function alienOrder(words) {
+            const result = buildGraph(words);
+            if (!result) return "";
+
+            const { graph, inDegree } = result;
+            const queue = [];
+            const order = [];
+
+            // Initialize queue with zero in-degree characters
+            for (const char in inDegree) {
+                if (inDegree[char] === 0) queue.push(char);
+            }
+
+            // Perform topological sort
+            while (queue.length > 0) {
+                const char = queue.shift();
+                order.push(char);
+
+                for (const neighbor of graph[char]) {
+                    inDegree[neighbor]--;
+                    if (inDegree[neighbor] === 0) queue.push(neighbor);
+                }
+            }
+
+            // Check for cycles
+            if (order.length !== Object.keys(graph).length) return "";
+
+            return order.join('');
+        }
+
+        function findAlienOrder() {
+            const input = document.getElementById("wordsInput").value.trim();
+            const words = input.split("\n").map(word => word.trim());
+            const outputElement = document.getElementById("output");
+
+            if (words.length < 2) {
+                outputElement.innerHTML = `<span class="error">Please provide at least two words.</span>`;
+                return;
+            }
+
+            const result = alienOrder(words);
+
+            if (result) {
+                outputElement.innerText = `Character order: ${result}`;
+            } else {
+                outputElement.innerHTML = `<span class="error">Invalid input or no valid character order found.</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
